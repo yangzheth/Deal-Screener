@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.pyo
+
+.pytest_cache/
+.mypy_cache/
+
+config/delivery.json
+config/watchlist.json
+config/sources.json
+
+output/
+
+.DS_Store
+Thumbs.db

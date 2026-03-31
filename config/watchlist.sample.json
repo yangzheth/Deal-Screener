@@ -1,0 +1,170 @@
+{
+  "markets": [
+    "CN",
+    "US"
+  ],
+  "ai_keywords": [
+    "ai startup",
+    "artificial intelligence",
+    "foundation model",
+    "large language model",
+    "llm",
+    "agent startup",
+    "ai agent",
+    "generative ai",
+    "machine learning",
+    "robotics ai",
+    "voice ai",
+    "multimodal ai",
+    "inference startup",
+    "model serving",
+    "agentic ai",
+    "artificial general intelligence",
+    "aigc",
+    "\u4eba\u5de5\u667a\u80fd",
+    "\u5927\u6a21\u578b",
+    "\u667a\u80fd\u4f53",
+    "\u751f\u6210\u5f0f\u4eba\u5de5\u667a\u80fd",
+    "\u591a\u6a21\u6001",
+    "da mo xing",
+    "ren gong zhi neng",
+    "zhi neng ti"
+  ],
+  "source_weights": {
+    "google_news": 8,
+    "rss": 10,
+    "manual_drop": 14,
+    "news": 8,
+    "restricted-social": 14
+  },
+  "entities": [
+    {
+      "name": "OpenAI",
+      "aliases": ["OpenAI"],
+      "entity_type": "company",
+      "geography": "US",
+      "priority": 3,
+      "tags": ["ai"]
+    },
+    {
+      "name": "Anthropic",
+      "aliases": ["Anthropic"],
+      "entity_type": "company",
+      "geography": "US",
+      "priority": 3,
+      "tags": ["ai"]
+    },
+    {
+      "name": "xAI",
+      "aliases": ["xAI", "x.ai"],
+      "entity_type": "company",
+      "geography": "US",
+      "priority": 3,
+      "tags": ["ai"]
+    },
+    {
+      "name": "Scale AI",
+      "aliases": ["Scale AI", "ScaleAI"],
+      "entity_type": "company",
+      "geography": "US",
+      "priority": 2,
+      "tags": ["ai"]
+    },
+    {
+      "name": "Perplexity",
+      "aliases": ["Perplexity", "Perplexity AI"],
+      "entity_type": "company",
+      "geography": "US",
+      "priority": 2,
+      "tags": ["ai"]
+    },
+    {
+      "name": "Moonshot AI",
+      "aliases": ["Moonshot AI", "Moonshot", "Kimi"],
+      "entity_type": "company",
+      "geography": "CN",
+      "priority": 3,
+      "tags": ["ai"]
+    },
+    {
+      "name": "Zhipu AI",
+      "aliases": ["Zhipu AI", "Zhipu", "ZhipuAI"],
+      "entity_type": "company",
+      "geography": "CN",
+      "priority": 3,
+      "tags": ["ai"]
+    },
+    {
+      "name": "MiniMax",
+      "aliases": ["MiniMax", "Mini Max"],
+      "entity_type": "company",
+      "geography": "CN",
+      "priority": 3,
+      "tags": ["ai"]
+    },
+    {
+      "name": "Baichuan",
+      "aliases": ["Baichuan", "Baichuan AI"],
+      "entity_type": "company",
+      "geography": "CN",
+      "priority": 2,
+      "tags": ["ai"]
+    },
+    {
+      "name": "01.AI",
+      "aliases": ["01.AI", "01 AI"],
+      "entity_type": "company",
+      "geography": "CN",
+      "priority": 2,
+      "tags": ["ai"]
+    },
+    {
+      "name": "Sam Altman",
+      "aliases": ["Sam Altman"],
+      "entity_type": "person",
+      "geography": "US",
+      "priority": 3,
+      "tags": ["founder", "ai"]
+    },
+    {
+      "name": "Mira Murati",
+      "aliases": ["Mira Murati"],
+      "entity_type": "person",
+      "geography": "US",
+      "priority": 2,
+      "tags": ["founder", "ai"]
+    },
+    {
+      "name": "Dario Amodei",
+      "aliases": ["Dario Amodei"],
+      "entity_type": "person",
+      "geography": "US",
+      "priority": 2,
+      "tags": ["founder", "ai"]
+    },
+    {
+      "name": "Alexandr Wang",
+      "aliases": ["Alexandr Wang"],
+      "entity_type": "person",
+      "geography": "US",
+      "priority": 2,
+      "tags": ["founder", "ai"]
+    },
+    {
+      "name": "Kai-Fu Lee",
+      "aliases": ["Kai-Fu Lee", "Kaifu Lee", "Lee Kai-Fu"],
+      "entity_type": "person",
+      "geography": "CN",
+      "priority": 2,
+      "tags": ["founder", "ai"]
+    },
+    {
+      "name": "Yang Zhilin",
+      "aliases": ["Yang Zhilin"],
+      "entity_type": "person",
+      "geography": "CN",
+      "priority": 2,
+      "tags": ["founder", "ai"]
+    }
+  ]
+}

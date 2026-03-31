@@ -1,0 +1,21 @@
+{
+  "deliveries": [
+    {
+      "id": "wecom-daily-digest",
+      "type": "wecom_bot",
+      "enabled": false,
+      "url": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=replace-with-your-key",
+      "max_items": 8,
+      "max_bytes": 3800
+    },
+    {
+      "id": "generic-webhook",
+      "type": "webhook",
+      "enabled": false,
+      "url": "https://example.com/webhook",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  ]
+}

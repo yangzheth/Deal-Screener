@@ -1,5 +1,13 @@
-{
+﻿{
   "deliveries": [
+    {
+      "id": "notion-market-watch",
+      "type": "notion_database",
+      "enabled": false,
+      "auth_token_env": "NOTION_API_TOKEN",
+      "data_source_id": "collection://replace-with-your-data-source-id",
+      "upsert": true
+    },
     {
       "id": "wecom-daily-digest",
       "type": "wecom_bot",

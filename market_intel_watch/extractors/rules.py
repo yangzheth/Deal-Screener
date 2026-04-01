@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from datetime import date, datetime
 import re
@@ -6,30 +6,57 @@ import re
 from market_intel_watch.models import Signal, SourceDocument, WatchEntity
 
 
-EVENT_PATTERNS = {
-    "funding": [
-        re.compile(
-            r"\b(raised|raising|funding|financing|seed|series [a-f]|valuation|backed by|led by)\b",
-            re.IGNORECASE,
-        ),
-        re.compile(r"\b(angel round|pre-seed|pre-a|series a|series b|series c)\b", re.IGNORECASE),
-        re.compile("(\u878d\u8d44|\u83b7\u6295|\u5b8c\u6210.*\u8f6e|\u79cd\u5b50\u8f6e|\u5929\u4f7f\u8f6e|\u6218\u7565\u6295\u8d44)"),
-    ],
-    "talent_departure": [
-        re.compile(
-            r"\b(resigns?|resigned|steps? down|leaves?|left|departed|quit|quits|exit|exits)\b",
-            re.IGNORECASE,
-        ),
-        re.compile("(\u79bb\u804c|\u8f9e\u4efb|\u5378\u4efb|\u79bb\u5f00|\u51fa\u8d70|\u4e0d\u518d\u62c5\u4efb)"),
-    ],
-    "talent_hire": [
-        re.compile(
-            r"\b(joins?|joined|hired|appoint(?:ed|s)?|poached|recruited|named as)\b",
-            re.IGNORECASE,
-        ),
-        re.compile("(\u52a0\u5165|\u52a0\u76df|\u4efb\u547d|\u51fa\u4efb|\u6316\u89d2|\u6316\u6765|\u5165\u804c)"),
-    ],
-}
+FUNDING_PATTERNS = [
+    re.compile(
+        r"\b(raised|raising|funding|financing|seed|series [a-f]|valuation|backed by|led by)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(r"\b(angel round|pre-seed|pre-a|series a|series b|series c)\b", re.IGNORECASE),
+    re.compile("(\u878d\u8d44|\u83b7\u6295|\u5b8c\u6210.*\u8f6e|\u79cd\u5b50\u8f6e|\u5929\u4f7f\u8f6e|\u6218\u7565\u6295\u8d44)"),
+]
+
+DEPARTURE_STRONG_PATTERNS = [
+    re.compile(r"\b(resigns?|resigned|steps? down|stepped down|departed|quit|quits)\b", re.IGNORECASE),
+    re.compile("(\u79bb\u804c|\u8f9e\u4efb|\u5378\u4efb|\u4e0d\u518d\u62c5\u4efb)"),
+]
+
+DEPARTURE_WEAK_PATTERNS = [
+    re.compile(r"\b(leaves?|left|exit|exits)\b", re.IGNORECASE),
+    re.compile("(\u79bb\u5f00|\u51fa\u8d70)"),
+]
+
+DEPARTURE_EXCLUSION_PATTERNS = [
+    re.compile(r"\bleft (details|out|behind|open|unanswered|untouched)\b", re.IGNORECASE),
+]
+
+HIRE_STRONG_PATTERNS = [
+    re.compile(r"\b(hired|appoint(?:ed|s)?|poached|recruited|named as|named)\b", re.IGNORECASE),
+    re.compile("(\u4efb\u547d|\u51fa\u4efb|\u6316\u89d2|\u6316\u6765|\u5165\u804c)"),
+]
+
+HIRE_WEAK_PATTERNS = [
+    re.compile(r"\b(joins?|joined)\b", re.IGNORECASE),
+    re.compile("(\u52a0\u5165|\u52a0\u76df)"),
+]
+
+HIRE_EXCLUSION_PATTERNS = [
+    re.compile(
+        r"\b(joins?|joined)\s+(the\s+)?(funding|financing|round|raise|investment|bid)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(r"\b(joins?|joined)\s+(in|for)\s+(the\s+)?(funding|financing|round|raise)\b", re.IGNORECASE),
+]
+
+TALENT_CONTEXT_PATTERNS = [
+    re.compile(
+        r"\b(founder|cofounder|co-founder|executive|researcher|employee|operator|partner|chair|chief|"
+        r"ceo|cto|cfo|coo|chief scientist|president|vp|vice president|director|manager|lead)\b",
+        re.IGNORECASE,
+    ),
+    re.compile("(\u521b\u59cb\u4eba|\u8054\u5408\u521b\u59cb\u4eba|\u9ad8\u7ba1|\u7814\u7a76\u5458|\u5458\u5de5|\u5408\u4f19\u4eba|\u8463\u4e8b|\u603b\u88c1|\u603b\u76d1|\u526f\u603b\u88c1|\u8d1f\u8d23\u4eba)"),
+]
+
+SENTENCE_SPLIT_RE = re.compile(r"[.!?;\n\r\u3002\uff01\uff1f\uff1b]+")
 
 GEOGRAPHY_HINTS = {
     "CN": [
@@ -84,11 +111,11 @@ class RuleBasedSignalExtractor:
     def extract(self, document: SourceDocument) -> list[Signal]:
         text = document.text_blob()
         normalized = text.lower()
-        event_types = self._detect_event_types(normalized)
+        matched_entities = self._match_entities(normalized)
+        event_types = self._detect_event_types(normalized, matched_entities)
         if not event_types:
             return []
 
-        matched_entities = self._match_entities(normalized)
         if not self._is_ai_relevant(normalized, matched_entities):
             return []
 
@@ -114,14 +141,86 @@ class RuleBasedSignalExtractor:
             )
         return signals
 
-    def _detect_event_types(self, text: str) -> list[str]:
+    def _detect_event_types(self, text: str, matched_entities: list[WatchEntity]) -> list[str]:
         matches: list[str] = []
-        for event_type in ("talent_departure", "funding", "talent_hire"):
-            for pattern in EVENT_PATTERNS[event_type]:
-                if pattern.search(text):
-                    matches.append(event_type)
-                    break
+        if self._detect_talent_departure(text, matched_entities):
+            matches.append("talent_departure")
+        if self._detect_funding(text):
+            matches.append("funding")
+        if self._detect_talent_hire(text, matched_entities):
+            matches.append("talent_hire")
         return matches
+
+    def _detect_funding(self, text: str) -> bool:
+        return any(pattern.search(text) for pattern in FUNDING_PATTERNS)
+
+    def _detect_talent_departure(self, text: str, matched_entities: list[WatchEntity]) -> bool:
+        return self._detect_talent_event(
+            text,
+            matched_entities,
+            strong_patterns=DEPARTURE_STRONG_PATTERNS,
+            weak_patterns=DEPARTURE_WEAK_PATTERNS,
+            exclusion_patterns=DEPARTURE_EXCLUSION_PATTERNS,
+        )
+
+    def _detect_talent_hire(self, text: str, matched_entities: list[WatchEntity]) -> bool:
+        return self._detect_talent_event(
+            text,
+            matched_entities,
+            strong_patterns=HIRE_STRONG_PATTERNS,
+            weak_patterns=HIRE_WEAK_PATTERNS,
+            exclusion_patterns=HIRE_EXCLUSION_PATTERNS,
+        )
+
+    def _detect_talent_event(
+        self,
+        text: str,
+        matched_entities: list[WatchEntity],
+        *,
+        strong_patterns: list[re.Pattern[str]],
+        weak_patterns: list[re.Pattern[str]],
+        exclusion_patterns: list[re.Pattern[str]],
+    ) -> bool:
+        for sentence in self._split_sentences(text):
+            if any(pattern.search(sentence) for pattern in exclusion_patterns):
+                continue
+            if any(pattern.search(sentence) for pattern in strong_patterns):
+                return True
+            if not any(pattern.search(sentence) for pattern in weak_patterns):
+                continue
+            if self._has_talent_context(sentence, matched_entities):
+                return True
+        return False
+
+    def _split_sentences(self, text: str) -> list[str]:
+        sentences = [part.strip() for part in SENTENCE_SPLIT_RE.split(text) if part.strip()]
+        return sentences or [text]
+
+    def _has_talent_context(self, text: str, matched_entities: list[WatchEntity]) -> bool:
+        if any(pattern.search(text) for pattern in TALENT_CONTEXT_PATTERNS):
+            return True
+        if any(entity.entity_type == "person" and self._contains_entity_alias(text, entity) for entity in matched_entities):
+            return True
+        return any(self._mentions_entity_transition(text, entity) for entity in matched_entities)
+
+    def _contains_entity_alias(self, text: str, entity: WatchEntity) -> bool:
+        return any(alias in text for alias in self._normalized_aliases(entity))
+
+    def _mentions_entity_transition(self, text: str, entity: WatchEntity) -> bool:
+        for alias in self._normalized_aliases(entity):
+            escaped = re.escape(alias)
+            if re.search(rf"\b(left|leaves?|exit|exits|joins?|joined)\s+{escaped}\b", text):
+                return True
+            if re.search(
+                rf"\b{escaped}\s+(hired|hires|appoint(?:ed|s)?|named|recruited|poached)\b",
+                text,
+            ):
+                return True
+        return False
+
+    def _normalized_aliases(self, entity: WatchEntity) -> list[str]:
+        aliases = [entity.name, *entity.aliases]
+        return [alias.lower().strip() for alias in aliases if alias and len(alias.strip()) >= 3]
 
     def _match_entities(self, text: str) -> list[WatchEntity]:
         matches: list[WatchEntity] = []

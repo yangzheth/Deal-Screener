@@ -1,4 +1,4 @@
-# AI Primary Market Watch
+﻿# AI Primary Market Watch
 
 `AI Primary Market Watch` is a lightweight MVP for investors who want a daily
 signal feed focused on:
@@ -171,3 +171,4 @@ Accepted fields:
   installed, so I could not execute or test the code locally here.
 - The code is written to be easy to extend rather than fully productionized on
   day one.
+

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from pathlib import Path
 import json
@@ -7,7 +7,7 @@ from market_intel_watch.models import WatchEntity
 
 
 def _load_json(path: Path) -> dict:
-    return json.loads(path.read_text(encoding="utf-8"))
+    return json.loads(path.read_text(encoding="utf-8-sig"))
 
 
 def _resolve_config_file(config_dir: Path, name: str) -> Path:

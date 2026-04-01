@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from datetime import date, datetime, time
 from pathlib import Path
@@ -10,10 +10,18 @@ from market_intel_watch.reporting.markdown import render_markdown_report
 from market_intel_watch.sources import build_sources
 
 
+def _document_quality(document: SourceDocument) -> tuple[int, datetime]:
+    richness = len(document.title) + len(document.summary) + len(document.content)
+    return richness, document.published_at or datetime.min
+
+
 def dedupe_documents(documents: list[SourceDocument]) -> list[SourceDocument]:
     seen: dict[str, SourceDocument] = {}
     for document in documents:
-        seen.setdefault(document.stable_key(), document)
+        key = document.stable_key()
+        existing = seen.get(key)
+        if existing is None or _document_quality(document) > _document_quality(existing):
+            seen[key] = document
     return list(seen.values())
 
 
@@ -28,6 +36,8 @@ def filter_recent_documents(
             filtered.append(document)
             continue
         age_days = (run_date - document.published_at.date()).days
+        if age_days < 0:
+            continue
         if age_days <= max_age_days:
             filtered.append(document)
     return filtered

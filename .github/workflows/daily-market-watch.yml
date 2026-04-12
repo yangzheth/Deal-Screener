@@ -1,7 +1,12 @@
-Ôªøname: Daily Market Watch
+name: Daily Market Watch
 
 on:
   workflow_dispatch:
+    inputs:
+      run_date:
+        description: Optional run date to backfill (YYYY-MM-DD)
+        required: false
+        type: string
   schedule:
     - cron: "0 9 * * *"
       timezone: "Asia/Shanghai"
@@ -66,7 +71,7 @@ jobs:
                   {
                     "property_key": "pipeline_deal",
                     "data_source_id": "collection://0b6c5021-4235-4b5d-b8bb-3f50da0c277b",
-                    "lookup_properties": ["È°πÁõÆÂêçÁß∞"],
+                    "lookup_properties": ["œÓƒø√˚≥∆"],
                     "signal_fields": ["company_name", "title"]
                   }
                 ]
@@ -79,4 +84,11 @@ jobs:
         run: python -m unittest discover -s tests -v
 
       - name: Sync daily report to Notion
-        run: python -m market_intel_watch daily --config-dir config --output-dir output
+        env:
+          RUN_DATE: ${{ github.event.inputs.run_date }}
+        run: |
+          if [ -n "${RUN_DATE}" ]; then
+            python -m market_intel_watch daily --config-dir config --output-dir output --date "${RUN_DATE}"
+          else
+            python -m market_intel_watch daily --config-dir config --output-dir output
+          fi

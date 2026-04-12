@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import copy
 from datetime import datetime
 import json
 import os
@@ -104,18 +105,28 @@ DEFAULT_RELATION_TARGETS = [
         "data_source_id": "collection://8a47f584-7a5b-4cba-9eb6-d6d6ca8789cc",
         "lookup_properties": ["Company"],
         "signal_fields": ["company_name"],
+        "create_if_missing": True,
+        "create_on_verdicts": ["Must Chase", "Worth Tracking"],
+        "create_required_fields": ["company_name"],
     },
     {
         "property_key": "ai_tracker_deal",
         "data_source_id": "collection://b7f972e1-ad2d-46e6-8b13-f298e99a3602",
         "lookup_properties": ["Company", "Deal"],
         "signal_fields": ["company_name", "title"],
+        "create_if_missing": True,
+        "create_on_event_types": ["funding"],
+        "create_on_verdicts": ["Must Chase", "Worth Tracking"],
+        "create_required_fields": ["company_name"],
     },
     {
         "property_key": "pipeline_deal",
         "data_source_id": "collection://0b6c5021-4235-4b5d-b8bb-3f50da0c277b",
         "lookup_properties": ["项目名称"],
         "signal_fields": ["company_name", "title"],
+        "create_if_missing": True,
+        "create_on_verdicts": ["Must Chase"],
+        "create_required_fields": ["company_name"],
     },
 ]
 
@@ -130,12 +141,12 @@ class NotionDatabaseDelivery(DeliveryChannel):
         self.upsert = bool(config.get("upsert", True))
         self.properties = {**DEFAULT_PROPERTIES, **config.get("properties", {})}
         self.default_review_status = config.get("default_review_status", "To Review")
-        self.relation_targets = config.get("relation_targets", DEFAULT_RELATION_TARGETS)
+        self.relation_targets = self._merge_relation_targets(config.get("relation_targets"))
         self.remote_properties: dict[str, dict] = {}
 
     def deliver(self, result: DailyRunResult, output_path: Path) -> None:
         self._validate_schema()
-        relation_indexes = self._build_relation_indexes()
+        relation_contexts = self._build_relation_contexts()
         signals = self.select_signals(result)
         existing_pages = self._list_existing_pages_for_run_date(result) if self.upsert else {}
         active_keys: set[str] = set()
@@ -148,7 +159,7 @@ class NotionDatabaseDelivery(DeliveryChannel):
                 result,
                 signal,
                 output_path,
-                relation_indexes=relation_indexes,
+                relation_contexts=relation_contexts,
                 for_create=page_id is None,
             )
             if page_id:
@@ -167,6 +178,26 @@ class NotionDatabaseDelivery(DeliveryChannel):
             stale_page_ids = [page_id for key, page_id in existing_pages.items() if key not in active_keys]
             for page_id in stale_page_ids:
                 self._request_json("PATCH", f"/v1/pages/{page_id}", {"archived": True})
+    def _merge_relation_targets(self, configured_targets: list[dict] | None) -> list[dict]:
+        if not configured_targets:
+            return [copy.deepcopy(target) for target in DEFAULT_RELATION_TARGETS]
+
+        defaults_by_key = {target["property_key"]: target for target in DEFAULT_RELATION_TARGETS}
+        merged: list[dict] = []
+        for target in configured_targets:
+            property_key = target.get("property_key", "")
+            base = copy.deepcopy(defaults_by_key.get(property_key, {}))
+            merged.append(self._deep_merge(base, target))
+        return merged
+
+    def _deep_merge(self, base: dict, override: dict) -> dict:
+        result = copy.deepcopy(base)
+        for key, value in override.items():
+            if isinstance(value, dict) and isinstance(result.get(key), dict):
+                result[key] = self._deep_merge(result[key], value)
+            else:
+                result[key] = value
+        return result
 
     def _list_existing_pages_for_run_date(self, result: DailyRunResult) -> dict[str, str]:
         pages: dict[str, str] = {}
@@ -196,7 +227,7 @@ class NotionDatabaseDelivery(DeliveryChannel):
         signal: Signal,
         output_path: Path,
         *,
-        relation_indexes: dict[str, dict[str, list[str]]],
+        relation_contexts: dict[str, dict],
         for_create: bool,
     ) -> dict:
         properties: dict[str, dict] = {
@@ -233,7 +264,7 @@ class NotionDatabaseDelivery(DeliveryChannel):
         if for_create:
             self._set_optional_select(properties, "review_status", self.default_review_status)
 
-        for property_key, relation_ids in self._resolve_relation_ids(signal, relation_indexes).items():
+        for property_key, relation_ids in self._resolve_relation_ids(signal, relation_contexts).items():
             if relation_ids and self._has_property(property_key):
                 properties[self.properties[property_key]] = {"relation": [{"id": item_id} for item_id in relation_ids[:10]]}
         return properties
@@ -289,43 +320,276 @@ class NotionDatabaseDelivery(DeliveryChannel):
             raise RuntimeError(
                 "Notion data source schema does not match the expected delivery schema; " + "; ".join(details)
             )
-
-    def _build_relation_indexes(self) -> dict[str, dict[str, list[str]]]:
-        indexes: dict[str, dict[str, list[str]]] = {}
+    def _build_relation_contexts(self) -> dict[str, dict]:
+        contexts: dict[str, dict] = {}
         for target in self.relation_targets:
             property_key = target.get("property_key", "")
             if not self._has_property(property_key):
                 continue
-            pages = self._query_all_pages(self._normalize_data_source_id(target["data_source_id"]))
-            index: dict[str, list[str]] = {}
-            for page in pages:
-                for property_name in target.get("lookup_properties", []):
-                    value = self._extract_property_plain_text(page, property_name)
-                    normalized = self._normalize_lookup(value)
-                    if not normalized:
-                        continue
-                    index.setdefault(normalized, []).append(page["id"])
-            indexes[property_key] = index
-        return indexes
+            data_source_id = self._normalize_data_source_id(target["data_source_id"])
+            schema = self._request_json("GET", f"/v1/data_sources/{data_source_id}").get("properties", {})
+            pages = self._query_all_pages(data_source_id)
+            contexts[property_key] = {
+                "config": target,
+                "data_source_id": data_source_id,
+                "schema": schema,
+                "index": self._build_relation_index(pages, target.get("lookup_properties", [])),
+            }
+        return contexts
 
-    def _resolve_relation_ids(self, signal: Signal, relation_indexes: dict[str, dict[str, list[str]]]) -> dict[str, list[str]]:
+    def _build_relation_index(self, pages: list[dict], lookup_properties: list[str]) -> dict[str, list[str]]:
+        index: dict[str, list[str]] = {}
+        for page in pages:
+            for property_name in lookup_properties:
+                value = self._extract_property_plain_text(page, property_name)
+                normalized = self._normalize_lookup(value)
+                if not normalized:
+                    continue
+                page_ids = index.setdefault(normalized, [])
+                if page["id"] not in page_ids:
+                    page_ids.append(page["id"])
+        return index
+
+    def _resolve_relation_ids(self, signal: Signal, relation_contexts: dict[str, dict]) -> dict[str, list[str]]:
         resolved: dict[str, list[str]] = {}
-        for target in self.relation_targets:
-            property_key = target.get("property_key", "")
-            index = relation_indexes.get(property_key)
-            if not index:
-                continue
-            candidates: list[str] = []
-            for field_name in target.get("signal_fields", []):
-                value = getattr(signal, field_name, "")
-                if isinstance(value, list):
-                    candidates.extend(item for item in value if item)
-                elif value:
-                    candidates.append(str(value))
-            relation_ids = self._find_relation_ids(index, candidates)
+        for property_key, context in relation_contexts.items():
+            candidates = self._relation_candidates(signal, context["config"])
+            relation_ids = self._find_relation_ids(context["index"], candidates)
+            if not relation_ids:
+                created_page_id = self._maybe_create_relation_page(signal, context, candidates)
+                if created_page_id:
+                    relation_ids = [created_page_id]
             if relation_ids:
                 resolved[property_key] = relation_ids
         return resolved
+
+    def _relation_candidates(self, signal: Signal, target: dict) -> list[str]:
+        candidates: list[str] = []
+        for field_name in target.get("signal_fields", []):
+            value = getattr(signal, field_name, "")
+            if isinstance(value, list):
+                candidates.extend(item for item in value if item)
+            elif value:
+                candidates.append(str(value))
+        return candidates
+
+    def _maybe_create_relation_page(self, signal: Signal, context: dict, candidates: list[str]) -> str:
+        target = context["config"]
+        if not self._should_create_relation_page(signal, target):
+            return ""
+
+        properties = self._build_related_page_properties(signal, context)
+        if not properties:
+            return ""
+
+        response = self._request_json(
+            "POST",
+            "/v1/pages",
+            {
+                "parent": {"data_source_id": context["data_source_id"]},
+                "properties": properties,
+            },
+        )
+        page_id = response.get("id", "")
+        if not page_id:
+            return ""
+        self._index_created_relation_page(context, page_id, candidates)
+        return page_id
+
+    def _should_create_relation_page(self, signal: Signal, target: dict) -> bool:
+        if not target.get("create_if_missing"):
+            return False
+
+        allowed_event_types = target.get("create_on_event_types", [])
+        if allowed_event_types and signal.event_type not in allowed_event_types:
+            return False
+
+        allowed_verdicts = target.get("create_on_verdicts", [])
+        if allowed_verdicts and signal.follow_verdict not in allowed_verdicts:
+            return False
+
+        required_fields = target.get("create_required_fields", [])
+        for field_name in required_fields:
+            value = getattr(signal, field_name, "")
+            if isinstance(value, list):
+                if not any(item for item in value if item):
+                    return False
+            elif not str(value or "").strip():
+                return False
+        return True
+
+    def _build_related_page_properties(self, signal: Signal, context: dict) -> dict:
+        property_key = context["config"].get("property_key", "")
+        if property_key == "company_record":
+            return self._build_company_record_properties(signal, context["schema"])
+        if property_key == "ai_tracker_deal":
+            return self._build_ai_tracker_deal_properties(signal, context["schema"])
+        if property_key == "pipeline_deal":
+            return self._build_pipeline_deal_properties(signal, context["schema"])
+        return {}
+
+    def _build_company_record_properties(self, signal: Signal, schema: dict[str, dict]) -> dict:
+        properties: dict[str, dict] = {}
+        self._set_target_title(properties, schema, "Company", signal.company_name)
+        self._set_target_rich_text(properties, schema, "Description", signal.summary)
+        self._set_target_select(properties, schema, "Status", "Radar List")
+        self._set_target_number(properties, schema, "Deal Score", round(signal.score, 2))
+        tags = ", ".join(item for item in [signal.follow_verdict, signal.event_type, *signal.categories] if item)
+        self._set_target_rich_text(properties, schema, "Tags", tags)
+        return properties
+
+    def _build_ai_tracker_deal_properties(self, signal: Signal, schema: dict[str, dict]) -> dict:
+        properties: dict[str, dict] = {}
+        self._set_target_title(properties, schema, "Deal", signal.title)
+        self._set_target_rich_text(properties, schema, "Company", signal.company_name)
+        self._set_target_rich_text(properties, schema, "Amount", signal.amount)
+        if signal.published_at is not None:
+            self._set_target_date(properties, schema, "Announced", signal.published_at.date().isoformat())
+        stage_label = self._tracker_round_label(signal.round_stage)
+        if stage_label:
+            stage_option = self._match_option_name(schema, "Stage / Round", [stage_label], fallback="Unknown")
+            self._set_target_select(properties, schema, "Stage / Round", stage_option)
+        self._set_target_status(properties, schema, "Status", "To review")
+        self._set_target_rich_text(properties, schema, "Summary", signal.summary)
+        self._set_target_url(properties, schema, "Source URL", signal.url)
+        self._set_target_multi_select(properties, schema, "Category", signal.categories)
+        investor_option = self._investor_option_name(schema, signal.investors)
+        if investor_option:
+            self._set_target_select(properties, schema, "Investor", investor_option)
+        return properties
+
+    def _build_pipeline_deal_properties(self, signal: Signal, schema: dict[str, dict]) -> dict:
+        properties: dict[str, dict] = {}
+        title = signal.company_name or signal.title
+        self._set_target_title(properties, schema, "项目名称", title)
+        self._set_target_select(properties, schema, "Priority", self._pipeline_priority(signal.follow_verdict))
+        self._set_target_rich_text(properties, schema, "Reason to Invest", signal.follow_reason or signal.suggested_action)
+        self._set_target_rich_text(properties, schema, "简介", signal.summary)
+        self._set_target_rich_text(properties, schema, "公司介绍", signal.summary)
+        self._set_target_rich_text(properties, schema, "融资轮次", signal.round_stage)
+        self._set_target_rich_text(properties, schema, "Investors", ", ".join(signal.investors))
+        self._set_target_rich_text(properties, schema, "Deal Dynamic", signal.title)
+        self._set_target_rich_text(properties, schema, "负责人", ", ".join(signal.key_people))
+        self._set_target_rich_text(properties, schema, "Category (新)", ", ".join(signal.categories))
+        self._set_target_rich_text(properties, schema, "相关文档链接", signal.url)
+        self._set_target_rich_text(properties, schema, "内部阶段", "Primary Market Watch")
+        return properties
+    def _set_target_title(self, properties: dict, schema: dict[str, dict], property_name: str, value: str) -> None:
+        if schema.get(property_name, {}).get("type") == "title" and (value or "").strip():
+            properties[property_name] = {"title": self._rich_text_parts(value, max_parts=1)}
+
+    def _set_target_rich_text(self, properties: dict, schema: dict[str, dict], property_name: str, value: str) -> None:
+        if schema.get(property_name, {}).get("type") == "rich_text" and (value or "").strip():
+            properties[property_name] = {"rich_text": self._rich_text_parts(value)}
+
+    def _set_target_number(self, properties: dict, schema: dict[str, dict], property_name: str, value: float | int) -> None:
+        if schema.get(property_name, {}).get("type") == "number":
+            properties[property_name] = {"number": value}
+
+    def _set_target_url(self, properties: dict, schema: dict[str, dict], property_name: str, value: str) -> None:
+        if schema.get(property_name, {}).get("type") == "url" and (value or "").strip():
+            properties[property_name] = {"url": value}
+
+    def _set_target_select(self, properties: dict, schema: dict[str, dict], property_name: str, value: str) -> None:
+        if schema.get(property_name, {}).get("type") == "select" and (value or "").strip():
+            properties[property_name] = {"select": {"name": value}}
+
+    def _set_target_status(self, properties: dict, schema: dict[str, dict], property_name: str, value: str) -> None:
+        if schema.get(property_name, {}).get("type") == "status" and (value or "").strip():
+            properties[property_name] = {"status": {"name": value}}
+
+    def _set_target_multi_select(self, properties: dict, schema: dict[str, dict], property_name: str, values: list[str]) -> None:
+        if schema.get(property_name, {}).get("type") != "multi_select":
+            return
+        matched_values = self._match_multi_select_values(schema, property_name, values)
+        if matched_values:
+            properties[property_name] = {"multi_select": [{"name": value} for value in matched_values]}
+
+    def _set_target_date(self, properties: dict, schema: dict[str, dict], property_name: str, value: str) -> None:
+        if schema.get(property_name, {}).get("type") == "date" and (value or "").strip():
+            properties[property_name] = {"date": {"start": value}}
+
+    def _match_multi_select_values(self, schema: dict[str, dict], property_name: str, values: list[str]) -> list[str]:
+        options = self._option_names(schema, property_name)
+        normalized_options = {self._normalize_lookup(item): item for item in options}
+        matched: list[str] = []
+        for value in values:
+            normalized = self._normalize_lookup(value)
+            option_name = normalized_options.get(normalized, "")
+            if not option_name:
+                for option_key, option_value in normalized_options.items():
+                    if normalized and (normalized in option_key or option_key in normalized):
+                        option_name = option_value
+                        break
+            if option_name and option_name not in matched:
+                matched.append(option_name)
+        return matched
+
+    def _match_option_name(self, schema: dict[str, dict], property_name: str, candidates: list[str], fallback: str = "") -> str:
+        options = self._option_names(schema, property_name)
+        if not options:
+            return ""
+        normalized_options = {self._normalize_lookup(item): item for item in options}
+        for candidate in candidates:
+            normalized = self._normalize_lookup(candidate)
+            option_name = normalized_options.get(normalized)
+            if option_name:
+                return option_name
+        for candidate in candidates:
+            normalized = self._normalize_lookup(candidate)
+            for option_key, option_value in normalized_options.items():
+                if normalized and (normalized in option_key or option_key in normalized):
+                    return option_value
+        if fallback:
+            fallback_option = normalized_options.get(self._normalize_lookup(fallback))
+            if fallback_option:
+                return fallback_option
+        return ""
+
+    def _option_names(self, schema: dict[str, dict], property_name: str) -> list[str]:
+        property_data = schema.get(property_name, {})
+        property_type = property_data.get("type")
+        type_payload = property_data.get(property_type, {})
+        return [item.get("name", "") for item in type_payload.get("options", []) if item.get("name")]
+
+    def _tracker_round_label(self, round_stage: str) -> str:
+        mapping = {
+            "Pre-Seed": "Seed",
+            "Seed": "Seed",
+            "Angel": "Angel",
+            "Pre-A": "Pre-A",
+            "Series A": "A",
+            "Series B": "B",
+            "Series C": "C+",
+            "Series D+": "C+",
+            "Strategic": "Strategic",
+        }
+        return mapping.get((round_stage or "").strip(), (round_stage or "").strip())
+
+    def _investor_option_name(self, schema: dict[str, dict], investors: list[str]) -> str:
+        if not investors:
+            return ""
+        option_name = self._match_option_name(schema, "Investor", investors)
+        if option_name:
+            return option_name
+        return self._match_option_name(schema, "Investor", ["Other"])
+
+    def _pipeline_priority(self, follow_verdict: str) -> str:
+        if follow_verdict == "Must Chase":
+            return "1"
+        if follow_verdict == "Worth Tracking":
+            return "2"
+        return "Hold"
+
+    def _index_created_relation_page(self, context: dict, page_id: str, candidates: list[str]) -> None:
+        index = context["index"]
+        for candidate in candidates:
+            normalized = self._normalize_lookup(candidate)
+            if not normalized:
+                continue
+            page_ids = index.setdefault(normalized, [])
+            if page_id not in page_ids:
+                page_ids.append(page_id)
 
     def _find_relation_ids(self, index: dict[str, list[str]], candidates: list[str]) -> list[str]:
         normalized_candidates = [self._normalize_lookup(candidate) for candidate in candidates if self._normalize_lookup(candidate)]
@@ -378,7 +642,6 @@ class NotionDatabaseDelivery(DeliveryChannel):
         if property_type == "status":
             return (property_data.get("status") or {}).get("name", "")
         return ""
-
     def _request_json(self, method: str, path: str, body: dict | None = None) -> dict:
         token = os.environ.get(self.auth_token_env, "").strip()
         if not token:
@@ -506,3 +769,4 @@ class NotionDatabaseDelivery(DeliveryChannel):
         if normalized.startswith("collection://"):
             normalized = normalized[len("collection://") :]
         return normalized.strip("{}")
+

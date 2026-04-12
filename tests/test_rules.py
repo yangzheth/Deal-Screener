@@ -15,7 +15,7 @@ class RuleBasedSignalExtractorTests(unittest.TestCase):
                 WatchEntity(name="OpenAI", aliases=["OpenAI"], entity_type="company", geography="US", priority=3, tags=["ai"]),
                 WatchEntity(name="xAI", aliases=["xAI", "x.ai"], entity_type="company", geography="US", priority=3, tags=["ai"]),
             ],
-            ai_keywords=["ai agent", "artificial intelligence", "ai startup"],
+            ai_keywords=["ai agent", "artificial intelligence", "ai startup", "foundation model"],
             source_weights={"news": 8, "manual_drop": 14},
             run_date=date(2026, 3, 31),
         )
@@ -34,7 +34,7 @@ class RuleBasedSignalExtractorTests(unittest.TestCase):
 
         self.assertEqual([], [signal.event_type for signal in signals])
 
-    def test_joins_funding_is_only_treated_as_funding(self) -> None:
+    def test_joins_funding_extracts_company_amount_and_follow_verdict(self) -> None:
         document = SourceDocument(
             source_id="test-news",
             channel="news",
@@ -47,8 +47,12 @@ class RuleBasedSignalExtractorTests(unittest.TestCase):
         signals = self.extractor.extract(document)
 
         self.assertEqual(["funding"], [signal.event_type for signal in signals])
+        self.assertEqual("Isara", signals[0].company_name)
+        self.assertEqual("$94M", signals[0].amount)
+        self.assertIn("Agent", signals[0].categories)
+        self.assertEqual("Must Chase", signals[0].follow_verdict)
 
-    def test_leave_with_company_context_is_kept_as_departure(self) -> None:
+    def test_leave_with_company_context_extracts_person_and_company(self) -> None:
         document = SourceDocument(
             source_id="test-news",
             channel="news",
@@ -61,6 +65,10 @@ class RuleBasedSignalExtractorTests(unittest.TestCase):
         signals = self.extractor.extract(document)
 
         self.assertIn("talent_departure", [signal.event_type for signal in signals])
+        departure = next(signal for signal in signals if signal.event_type == "talent_departure")
+        self.assertEqual("xAI", departure.company_name)
+        self.assertIn("Ross Nordeen", departure.key_people)
+        self.assertEqual("Must Chase", departure.follow_verdict)
 
     def test_join_with_role_context_is_kept_as_hire(self) -> None:
         document = SourceDocument(
@@ -76,6 +84,8 @@ class RuleBasedSignalExtractorTests(unittest.TestCase):
         signals = self.extractor.extract(document)
 
         self.assertIn("talent_hire", [signal.event_type for signal in signals])
+        hire = next(signal for signal in signals if signal.event_type == "talent_hire")
+        self.assertEqual("Worth Tracking", hire.follow_verdict)
 
 
 if __name__ == "__main__":

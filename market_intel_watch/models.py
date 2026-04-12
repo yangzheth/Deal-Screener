@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -71,9 +71,22 @@ class Signal:
     score: float = 0.0
     rationale: list[str] = field(default_factory=list)
     metadata: dict[str, str] = field(default_factory=dict)
+    company_name: str = ""
+    key_people: list[str] = field(default_factory=list)
+    amount: str = ""
+    round_stage: str = ""
+    investors: list[str] = field(default_factory=list)
+    categories: list[str] = field(default_factory=list)
+    cluster_key: str = ""
+    source_count: int = 1
+    supporting_urls: list[str] = field(default_factory=list)
+    follow_verdict: str = "Monitor"
+    follow_reason: str = ""
+    suggested_action: str = ""
+    confidence: float = 0.0
 
     def stable_key(self) -> str:
-        token = f"{self.event_type}|{normalize_url(self.url)}|{normalize_whitespace(self.title).lower()}"
+        token = self.cluster_key or f"{self.event_type}|{normalize_url(self.url)}|{normalize_whitespace(self.title).lower()}"
         return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 

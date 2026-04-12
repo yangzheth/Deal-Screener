@@ -1,29 +1,59 @@
-{
+﻿{
   "sources": [
     {
-      "id": "google-news-us-funding",
+      "id": "google-news-us-funding-core",
       "type": "google_news",
       "enabled": true,
       "channel": "news",
-      "query": "(\"AI startup\" OR \"artificial intelligence startup\" OR \"LLM startup\" OR \"agent startup\") (raised OR funding OR financing OR seed OR \"series a\" OR \"series b\" OR valuation)",
+      "query": "(\"AI startup\" OR \"artificial intelligence startup\" OR \"LLM startup\" OR \"agent startup\" OR \"foundation model\") (raised OR funding OR financing OR seed OR \"series a\" OR \"series b\" OR valuation OR \"strategic investment\")",
       "hl": "en-US",
       "gl": "US",
       "ceid": "US:en",
-      "max_items": 40
+      "max_items": 30,
+      "fetch_article_body": true,
+      "article_timeout": 12
+    },
+    {
+      "id": "google-news-us-funding-applied-ai",
+      "type": "google_news",
+      "enabled": true,
+      "channel": "news",
+      "query": "(robotics OR \"voice ai\" OR \"video ai\" OR \"enterprise ai\" OR \"healthcare ai\" OR \"coding ai\") (raised OR funding OR financing OR seed OR \"series a\" OR valuation)",
+      "hl": "en-US",
+      "gl": "US",
+      "ceid": "US:en",
+      "max_items": 25,
+      "fetch_article_body": true,
+      "article_timeout": 12
     },
     {
       "id": "google-news-us-talent",
       "type": "google_news",
       "enabled": true,
       "channel": "news",
-      "query": "(OpenAI OR Anthropic OR xAI OR \"Scale AI\" OR \"AI startup\") (resigned OR leaves OR left OR joins OR hired OR appointed OR poached)",
+      "query": "(OpenAI OR Anthropic OR xAI OR \"Scale AI\" OR \"Mistral AI\" OR Cohere OR \"Figure AI\" OR Runway OR HeyGen OR DeepSeek) (resigned OR leaves OR left OR joins OR hired OR appointed OR poached)",
       "hl": "en-US",
       "gl": "US",
       "ceid": "US:en",
-      "max_items": 40
+      "max_items": 30,
+      "fetch_article_body": true,
+      "article_timeout": 12
     },
     {
-      "id": "google-news-cn-funding",
+      "id": "google-news-global-model-labs",
+      "type": "google_news",
+      "enabled": true,
+      "channel": "news",
+      "query": "(OpenAI OR Anthropic OR xAI OR \"Mistral AI\" OR Cohere OR DeepSeek OR Moonshot OR MiniMax) (funding OR valuation OR hired OR resigned OR appointed)",
+      "hl": "en-US",
+      "gl": "US",
+      "ceid": "US:en",
+      "max_items": 25,
+      "fetch_article_body": true,
+      "article_timeout": 12
+    },
+    {
+      "id": "google-news-cn-funding-core",
       "type": "google_news",
       "enabled": true,
       "channel": "news",
@@ -31,18 +61,48 @@
       "hl": "zh-CN",
       "gl": "CN",
       "ceid": "CN:zh-Hans",
-      "max_items": 40
+      "max_items": 30,
+      "fetch_article_body": true,
+      "article_timeout": 12
+    },
+    {
+      "id": "google-news-cn-applied-ai",
+      "type": "google_news",
+      "enabled": true,
+      "channel": "news",
+      "query": "(\u673a\u5668\u4eba OR \u5177\u8eab\u667a\u80fd OR \u89c6\u9891\u751f\u6210 OR \u4f01\u4e1aAI OR \u533b\u7597AI OR \u667a\u80fd\u5ba2\u670d) (\u878d\u8d44 OR \u83b7\u6295 OR A\u8f6e OR B\u8f6e OR \u6218\u7565\u6295\u8d44)",
+      "hl": "zh-CN",
+      "gl": "CN",
+      "ceid": "CN:zh-Hans",
+      "max_items": 25,
+      "fetch_article_body": true,
+      "article_timeout": 12
     },
     {
       "id": "google-news-cn-talent",
       "type": "google_news",
       "enabled": true,
       "channel": "news",
-      "query": "(AI OR \u4eba\u5de5\u667a\u80fd OR \u5927\u6a21\u578b OR \u667a\u80fd\u4f53) (\u79bb\u804c OR \u8f9e\u4efb OR \u52a0\u5165 OR \u4efb\u547d OR \u521b\u59cb\u4eba OR \u6838\u5fc3\u6210\u5458)",
+      "query": "(AI OR \u4eba\u5de5\u667a\u80fd OR \u5927\u6a21\u578b OR \u667a\u80fd\u4f53 OR DeepSeek OR \u6708\u4e4b\u6697\u9762 OR MiniMax OR \u667a\u8c31) (\u79bb\u804c OR \u8f9e\u4efb OR \u52a0\u5165 OR \u4efb\u547d OR \u521b\u59cb\u4eba OR \u6838\u5fc3\u6210\u5458)",
       "hl": "zh-CN",
       "gl": "CN",
       "ceid": "CN:zh-Hans",
-      "max_items": 40
+      "max_items": 30,
+      "fetch_article_body": true,
+      "article_timeout": 12
+    },
+    {
+      "id": "google-news-cn-headline-companies",
+      "type": "google_news",
+      "enabled": true,
+      "channel": "news",
+      "query": "(DeepSeek OR \u6708\u4e4b\u6697\u9762 OR \u667a\u8c31 OR MiniMax OR \u767e\u5ddd OR 01.AI OR \u9636\u8dc3\u661f\u8fb0) (\u878d\u8d44 OR \u8f6e OR \u79bb\u804c OR \u4efb\u547d OR \u6218\u7565\u6295\u8d44)",
+      "hl": "zh-CN",
+      "gl": "CN",
+      "ceid": "CN:zh-Hans",
+      "max_items": 25,
+      "fetch_article_body": true,
+      "article_timeout": 12
     },
     {
       "id": "manual-drop",
@@ -51,6 +111,16 @@
       "channel": "restricted-social",
       "path": "inbox/manual",
       "file_glob": "*.jsonl"
+    },
+    {
+      "id": "custom-rss-placeholder",
+      "type": "rss",
+      "enabled": false,
+      "channel": "rss",
+      "url": "https://example.com/feed.xml",
+      "max_items": 20,
+      "fetch_article_body": true,
+      "article_timeout": 12
     }
   ]
 }

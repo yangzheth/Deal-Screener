@@ -3,8 +3,8 @@
 from datetime import date, datetime, timezone
 import unittest
 
-from market_intel_watch.models import SourceDocument
-from market_intel_watch.pipeline import dedupe_documents, filter_recent_documents
+from market_intel_watch.models import Signal, SourceDocument
+from market_intel_watch.pipeline import cluster_signals, dedupe_documents, filter_recent_documents
 
 
 class PipelineTests(unittest.TestCase):
@@ -62,6 +62,50 @@ class PipelineTests(unittest.TestCase):
 
         self.assertEqual(1, len(deduped))
         self.assertEqual("Expanded details from a richer source.", deduped[0].content)
+
+    def test_cluster_signals_merges_multi_source_event(self) -> None:
+        signals = [
+            Signal(
+                event_type="funding",
+                title="Isara raises $94M for AI agent swarm software",
+                summary="Primary source summary.",
+                url="https://example.com/isara-1",
+                source_id="source-a",
+                channel="news",
+                published_at=datetime(2026, 3, 30, 9, 0, tzinfo=timezone.utc),
+                company_name="Isara",
+                amount="$94M",
+                categories=["Agent"],
+                cluster_key="funding|isara|94m",
+                score=90.0,
+                supporting_urls=["https://example.com/isara-1"],
+                confidence=0.72,
+            ),
+            Signal(
+                event_type="funding",
+                title="Isara secures $94M for agent infrastructure",
+                summary="Second source summary.",
+                url="https://example.com/isara-2",
+                source_id="source-b",
+                channel="rss",
+                published_at=datetime(2026, 3, 30, 10, 0, tzinfo=timezone.utc),
+                company_name="Isara",
+                amount="$94M",
+                categories=["Agent", "Infra"],
+                cluster_key="funding|isara|94m",
+                score=88.0,
+                supporting_urls=["https://example.com/isara-2"],
+                confidence=0.75,
+            ),
+        ]
+
+        clustered = cluster_signals(signals)
+
+        self.assertEqual(1, len(clustered))
+        self.assertEqual(2, clustered[0].source_count)
+        self.assertIn("Infra", clustered[0].categories)
+        self.assertEqual(2, len(clustered[0].supporting_urls))
+        self.assertGreater(clustered[0].score, 90.0)
 
 
 if __name__ == "__main__":

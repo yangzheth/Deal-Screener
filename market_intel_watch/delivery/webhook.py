@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 from pathlib import Path
@@ -10,6 +10,7 @@ from market_intel_watch.models import DailyRunResult
 
 class WebhookDelivery(DeliveryChannel):
     def deliver(self, result: DailyRunResult, output_path: Path) -> None:
+        signals = self.select_signals(result)
         payload = json.dumps(
             {
                 "title": f"AI Primary Market Watch - {result.run_date.date().isoformat()}",
@@ -17,7 +18,23 @@ class WebhookDelivery(DeliveryChannel):
                 "report_path": str(output_path),
                 "documents_fetched": result.documents_fetched,
                 "documents_deduped": result.documents_deduped,
-                "signals_detected": len(result.signals),
+                "signals_detected": len(signals),
+                "signals": [
+                    {
+                        "title": signal.title,
+                        "url": signal.url,
+                        "event_type": signal.event_type,
+                        "company_name": signal.company_name,
+                        "round_stage": signal.round_stage,
+                        "amount": signal.amount,
+                        "investors": signal.investors,
+                        "follow_verdict": signal.follow_verdict,
+                        "suggested_action": signal.suggested_action,
+                        "score": signal.score,
+                        "source_count": signal.source_count,
+                    }
+                    for signal in signals
+                ],
             }
         ).encode("utf-8")
         headers = self.config.get("headers", {"Content-Type": "application/json"})

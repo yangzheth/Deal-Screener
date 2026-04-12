@@ -1,4 +1,4 @@
-{
+﻿{
   "markets": [
     "CN",
     "US"
@@ -20,12 +20,22 @@
     "model serving",
     "agentic ai",
     "artificial general intelligence",
+    "developer tool",
+    "coding ai",
+    "video ai",
+    "enterprise ai",
+    "healthcare ai",
     "aigc",
     "\u4eba\u5de5\u667a\u80fd",
     "\u5927\u6a21\u578b",
     "\u667a\u80fd\u4f53",
     "\u751f\u6210\u5f0f\u4eba\u5de5\u667a\u80fd",
     "\u591a\u6a21\u6001",
+    "\u63a8\u7406",
+    "\u673a\u5668\u4eba",
+    "\u5177\u8eab\u667a\u80fd",
+    "\u4f01\u4e1aAI",
+    "\u89c6\u9891\u751f\u6210",
     "da mo xing",
     "ren gong zhi neng",
     "zhi neng ti"
@@ -44,7 +54,7 @@
       "entity_type": "company",
       "geography": "US",
       "priority": 3,
-      "tags": ["ai"]
+      "tags": ["ai", "foundation-model"]
     },
     {
       "name": "Anthropic",
@@ -52,7 +62,7 @@
       "entity_type": "company",
       "geography": "US",
       "priority": 3,
-      "tags": ["ai"]
+      "tags": ["ai", "foundation-model"]
     },
     {
       "name": "xAI",
@@ -60,7 +70,7 @@
       "entity_type": "company",
       "geography": "US",
       "priority": 3,
-      "tags": ["ai"]
+      "tags": ["ai", "foundation-model"]
     },
     {
       "name": "Scale AI",
@@ -68,7 +78,7 @@
       "entity_type": "company",
       "geography": "US",
       "priority": 2,
-      "tags": ["ai"]
+      "tags": ["ai", "infra"]
     },
     {
       "name": "Perplexity",
@@ -76,23 +86,87 @@
       "entity_type": "company",
       "geography": "US",
       "priority": 2,
-      "tags": ["ai"]
+      "tags": ["ai", "consumer"]
+    },
+    {
+      "name": "Mistral AI",
+      "aliases": ["Mistral AI", "Mistral"],
+      "entity_type": "company",
+      "geography": "US",
+      "priority": 2,
+      "tags": ["ai", "foundation-model"]
+    },
+    {
+      "name": "Cohere",
+      "aliases": ["Cohere"],
+      "entity_type": "company",
+      "geography": "US",
+      "priority": 2,
+      "tags": ["ai", "foundation-model"]
+    },
+    {
+      "name": "Figure AI",
+      "aliases": ["Figure AI", "Figure"],
+      "entity_type": "company",
+      "geography": "US",
+      "priority": 2,
+      "tags": ["ai", "robotics"]
+    },
+    {
+      "name": "Runway",
+      "aliases": ["Runway", "Runway AI"],
+      "entity_type": "company",
+      "geography": "US",
+      "priority": 2,
+      "tags": ["ai", "consumer"]
+    },
+    {
+      "name": "HeyGen",
+      "aliases": ["HeyGen"],
+      "entity_type": "company",
+      "geography": "US",
+      "priority": 2,
+      "tags": ["ai", "consumer"]
+    },
+    {
+      "name": "Glean",
+      "aliases": ["Glean"],
+      "entity_type": "company",
+      "geography": "US",
+      "priority": 2,
+      "tags": ["ai", "enterprise"]
+    },
+    {
+      "name": "Adept",
+      "aliases": ["Adept"],
+      "entity_type": "company",
+      "geography": "US",
+      "priority": 2,
+      "tags": ["ai", "agent"]
+    },
+    {
+      "name": "DeepSeek",
+      "aliases": ["DeepSeek", "\u6df1\u5ea6\u6c42\u7d22"],
+      "entity_type": "company",
+      "geography": "CN",
+      "priority": 3,
+      "tags": ["ai", "foundation-model"]
     },
     {
       "name": "Moonshot AI",
-      "aliases": ["Moonshot AI", "Moonshot", "Kimi"],
+      "aliases": ["Moonshot AI", "Moonshot", "Kimi", "\u6708\u4e4b\u6697\u9762"],
       "entity_type": "company",
       "geography": "CN",
       "priority": 3,
-      "tags": ["ai"]
+      "tags": ["ai", "foundation-model"]
     },
     {
       "name": "Zhipu AI",
-      "aliases": ["Zhipu AI", "Zhipu", "ZhipuAI"],
+      "aliases": ["Zhipu AI", "Zhipu", "ZhipuAI", "\u667a\u8c31"],
       "entity_type": "company",
       "geography": "CN",
       "priority": 3,
-      "tags": ["ai"]
+      "tags": ["ai", "foundation-model"]
     },
     {
       "name": "MiniMax",
@@ -100,23 +174,31 @@
       "entity_type": "company",
       "geography": "CN",
       "priority": 3,
-      "tags": ["ai"]
+      "tags": ["ai", "foundation-model"]
     },
     {
       "name": "Baichuan",
-      "aliases": ["Baichuan", "Baichuan AI"],
+      "aliases": ["Baichuan", "Baichuan AI", "\u767e\u5ddd"],
       "entity_type": "company",
       "geography": "CN",
       "priority": 2,
-      "tags": ["ai"]
+      "tags": ["ai", "foundation-model"]
     },
     {
       "name": "01.AI",
-      "aliases": ["01.AI", "01 AI"],
+      "aliases": ["01.AI", "01 AI", "\u96f6\u4e00\u4e07\u7269"],
       "entity_type": "company",
       "geography": "CN",
       "priority": 2,
-      "tags": ["ai"]
+      "tags": ["ai", "foundation-model"]
+    },
+    {
+      "name": "StepFun",
+      "aliases": ["StepFun", "\u9636\u8dc3\u661f\u8fb0"],
+      "entity_type": "company",
+      "geography": "CN",
+      "priority": 2,
+      "tags": ["ai", "foundation-model"]
     },
     {
       "name": "Sam Altman",
@@ -151,6 +233,14 @@
       "tags": ["founder", "ai"]
     },
     {
+      "name": "Mustafa Suleyman",
+      "aliases": ["Mustafa Suleyman"],
+      "entity_type": "person",
+      "geography": "US",
+      "priority": 2,
+      "tags": ["founder", "ai"]
+    },
+    {
       "name": "Kai-Fu Lee",
       "aliases": ["Kai-Fu Lee", "Kaifu Lee", "Lee Kai-Fu"],
       "entity_type": "person",
@@ -160,7 +250,7 @@
     },
     {
       "name": "Yang Zhilin",
-      "aliases": ["Yang Zhilin"],
+      "aliases": ["Yang Zhilin", "\u6768\u690d\u9e9f"],
       "entity_type": "person",
       "geography": "CN",
       "priority": 2,

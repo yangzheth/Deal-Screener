@@ -6,14 +6,36 @@
       "enabled": false,
       "auth_token_env": "NOTION_API_TOKEN",
       "data_source_id": "collection://replace-with-your-data-source-id",
-      "upsert": true
+      "upsert": true,
+      "default_review_status": "To Review",
+      "relation_targets": [
+        {
+          "property_key": "company_record",
+          "data_source_id": "collection://8a47f584-7a5b-4cba-9eb6-d6d6ca8789cc",
+          "lookup_properties": ["Company"],
+          "signal_fields": ["company_name"]
+        },
+        {
+          "property_key": "ai_tracker_deal",
+          "data_source_id": "collection://b7f972e1-ad2d-46e6-8b13-f298e99a3602",
+          "lookup_properties": ["Company", "Deal"],
+          "signal_fields": ["company_name", "title"]
+        },
+        {
+          "property_key": "pipeline_deal",
+          "data_source_id": "collection://0b6c5021-4235-4b5d-b8bb-3f50da0c277b",
+          "lookup_properties": ["项目名称"],
+          "signal_fields": ["company_name", "title"]
+        }
+      ]
     },
     {
-      "id": "wecom-daily-digest",
+      "id": "wecom-priority-alerts",
       "type": "wecom_bot",
       "enabled": false,
       "url": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=replace-with-your-key",
-      "max_items": 8,
+      "min_score": 85,
+      "max_items": 6,
       "max_bytes": 3800
     },
     {
@@ -21,6 +43,8 @@
       "type": "webhook",
       "enabled": false,
       "url": "https://example.com/webhook",
+      "min_score": 80,
+      "max_items": 10,
       "headers": {
         "Content-Type": "application/json"
       }

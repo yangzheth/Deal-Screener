@@ -8,7 +8,11 @@ import unittest
 from unittest.mock import patch
 
 from market_intel_watch.delivery import build_deliveries
-from market_intel_watch.delivery.notion import NotionDatabaseDelivery, REQUIRED_PROPERTY_TYPES
+from market_intel_watch.delivery.notion import (
+    NotionDatabaseDelivery,
+    OPTIONAL_PROPERTY_TYPES,
+    REQUIRED_PROPERTY_TYPES,
+)
 from market_intel_watch.models import DailyRunResult, Signal
 
 
@@ -30,6 +34,17 @@ def build_result() -> DailyRunResult:
                 geography="US",
                 score=98.0,
                 rationale=["event=funding", "market=US"],
+                company_name="Isara",
+                amount="$94M",
+                round_stage="Series A",
+                investors=["OpenAI Ventures"],
+                categories=["Agent"],
+                cluster_key="funding|isara|series-a",
+                follow_verdict="Must Chase",
+                follow_reason="Immediate follow-up.",
+                suggested_action="Open the company record.",
+                confidence=0.84,
+                source_count=2,
             )
         ],
         errors=[],
@@ -37,11 +52,17 @@ def build_result() -> DailyRunResult:
     )
 
 
-def build_schema() -> dict:
+def build_schema(include_optional: bool = False) -> dict:
     delivery = NotionDatabaseDelivery({"id": "x", "data_source_id": "collection://demo", "type": "notion_database"})
     properties = {}
     for key, value_type in REQUIRED_PROPERTY_TYPES.items():
         properties[delivery.properties[key]] = {"type": value_type}
+    if include_optional:
+        for key, value_type in OPTIONAL_PROPERTY_TYPES.items():
+            if value_type == "relation":
+                properties[delivery.properties[key]] = {"type": value_type}
+            else:
+                properties[delivery.properties[key]] = {"type": value_type}
     return {"properties": properties}
 
 
@@ -50,11 +71,12 @@ def build_existing_page(page_id: str, signal_key: str) -> dict:
         "id": page_id,
         "properties": {
             "Signal Key": {
+                "type": "rich_text",
                 "rich_text": [
                     {
                         "plain_text": signal_key,
                     }
-                ]
+                ],
             }
         },
     }
@@ -85,7 +107,7 @@ class NotionDatabaseDeliveryTests(unittest.TestCase):
             del instance
             calls.append((method, path, body))
             if method == "GET":
-                return build_schema()
+                return build_schema(include_optional=True)
             if path.endswith("/query"):
                 return {"results": [], "has_more": False}
             if path == "/v1/pages":
@@ -102,10 +124,9 @@ class NotionDatabaseDeliveryTests(unittest.TestCase):
             "a1f37ba1-0e98-457e-82f1-db47ec20ab17",
             create_call[2]["parent"]["data_source_id"],
         )
-        self.assertEqual(
-            "Funding",
-            create_call[2]["properties"]["Event Type"]["select"]["name"],
-        )
+        self.assertEqual("Funding", create_call[2]["properties"]["Event Type"]["select"]["name"])
+        self.assertEqual("Isara", create_call[2]["properties"]["Company"]["rich_text"][0]["text"]["content"])
+        self.assertEqual("Must Chase", create_call[2]["properties"]["Follow Verdict"]["select"]["name"])
 
     def test_update_page_when_signal_already_exists(self) -> None:
         delivery = NotionDatabaseDelivery(self.config)
@@ -116,7 +137,7 @@ class NotionDatabaseDeliveryTests(unittest.TestCase):
             del instance
             calls.append((method, path, body))
             if method == "GET":
-                return build_schema()
+                return build_schema(include_optional=True)
             if path.endswith("/query"):
                 return {"results": [build_existing_page("page-existing", signal_key)], "has_more": False}
             if path == "/v1/pages/page-existing":
@@ -130,6 +151,7 @@ class NotionDatabaseDeliveryTests(unittest.TestCase):
         self.assertEqual("PATCH", update_call[0])
         self.assertEqual("/v1/pages/page-existing", update_call[1])
         self.assertIn("properties", update_call[2])
+        self.assertNotIn("Review Status", update_call[2]["properties"])
 
     def test_archives_stale_pages_that_are_no_longer_in_latest_run(self) -> None:
         delivery = NotionDatabaseDelivery(self.config)

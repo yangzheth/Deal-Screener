@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 from pathlib import Path
@@ -11,8 +11,13 @@ from market_intel_watch.models import DailyRunResult
 
 class WeComBotDelivery(DeliveryChannel):
     def build_payload(self, result: DailyRunResult) -> dict:
+        signals = self.select_signals(result)
         content = build_wecom_markdown(
-            result,
+            signals,
+            run_date=result.run_date.date().isoformat(),
+            documents_fetched=result.documents_fetched,
+            documents_deduped=result.documents_deduped,
+            errors=result.errors,
             max_items=int(self.config.get("max_items", 8)),
             max_bytes=int(self.config.get("max_bytes", 3800)),
         )

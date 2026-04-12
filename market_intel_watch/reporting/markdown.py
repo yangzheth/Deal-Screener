@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from collections import Counter
 from datetime import date
@@ -13,6 +13,10 @@ EVENT_LABELS = {
 }
 
 
+def _format_list(values: list[str], fallback: str = "unknown") -> str:
+    return ", ".join(values) if values else fallback
+
+
 def render_markdown_report(
     run_date: date,
     documents_fetched: int,
@@ -21,6 +25,7 @@ def render_markdown_report(
     errors: list[str],
 ) -> str:
     counts = Counter(signal.event_type for signal in signals)
+    urgent = [signal for signal in signals if signal.follow_verdict == "Must Chase"]
     lines: list[str] = [
         "# AI Primary Market Watch",
         "",
@@ -33,8 +38,19 @@ def render_markdown_report(
         f"- Funding signals: {counts.get('funding', 0)}",
         f"- Talent departure signals: {counts.get('talent_departure', 0)}",
         f"- Talent hire signals: {counts.get('talent_hire', 0)}",
+        f"- Must-chase items: {len(urgent)}",
         "",
     ]
+
+    if urgent:
+        lines.extend(["## Immediate Follow-Up", ""])
+        for signal in urgent[:8]:
+            lines.append(f"- [{signal.title}]({signal.url})")
+            lines.append(
+                f"  Verdict: {signal.follow_verdict} | Company: {signal.company_name or 'unknown'} | Score: {signal.score:.1f} | Sources: {signal.source_count}"
+            )
+            lines.append(f"  Action: {signal.suggested_action}")
+        lines.append("")
 
     if errors:
         lines.extend(["## Warnings", ""])
@@ -52,13 +68,24 @@ def render_markdown_report(
             published = signal.published_at.isoformat() if signal.published_at else "unknown"
             lines.append(f"{index}. [{signal.title}]({signal.url})")
             lines.append(
-                f"   Score: {signal.score:.1f} | Geography: {signal.geography} | Entities: {entities}"
+                f"   Score: {signal.score:.1f} | Verdict: {signal.follow_verdict} | Confidence: {signal.confidence:.2f} | Geography: {signal.geography}"
             )
             lines.append(
-                f"   Source: {signal.source_id} ({signal.channel}) | Published: {published}"
+                f"   Company: {signal.company_name or 'unknown'} | People: {_format_list(signal.key_people)} | Entities: {entities}"
             )
+            lines.append(
+                f"   Round: {signal.round_stage or 'unknown'} | Amount: {signal.amount or 'unknown'} | Investors: {_format_list(signal.investors)}"
+            )
+            lines.append(
+                f"   Category: {_format_list(signal.categories)} | Sources: {signal.source_count} | Source IDs: {signal.source_id or 'unknown'}"
+            )
+            lines.append(f"   Published: {published}")
             if signal.summary:
                 lines.append(f"   Summary: {signal.summary}")
+            if signal.follow_reason:
+                lines.append(f"   Why Track: {signal.follow_reason}")
+            if signal.suggested_action:
+                lines.append(f"   Suggested Action: {signal.suggested_action}")
             if signal.rationale:
                 lines.append(f"   Why: {', '.join(signal.rationale)}")
             lines.append("")
@@ -77,9 +104,9 @@ def render_markdown_report(
         [
             "## Next Actions",
             "",
-            "- Tighten the watchlist around companies, founders, and operators you care about most.",
-            "- Add manual drops from WeChat / Xiaohongshu / Maimai once you have an export workflow.",
-            "- Route only high-score items into real-time push; keep everything else in the daily digest.",
+            "- Review all Must Chase items first and link them to Companies or Deal Pipeline.",
+            "- Confirm funding amounts, investor syndicates, and category tags before moving a deal into AI Investment Tracker.",
+            "- Keep lower-confidence items in the watch inbox until a second source or stronger context appears.",
             "",
         ]
     )

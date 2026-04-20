@@ -6,7 +6,11 @@ from pathlib import Path
 
 from market_intel_watch.config import load_delivery_config
 from market_intel_watch.delivery import build_deliveries
+from market_intel_watch.logging_config import get_logger, setup_logging
 from market_intel_watch.pipeline import run_daily
+
+
+logger = get_logger(__name__)
 
 
 def parse_args() -> argparse.Namespace:
@@ -42,6 +46,7 @@ def _parse_date(value: str | None) -> date:
 
 
 def main() -> int:
+    setup_logging()
     args = parse_args()
     if args.command != "daily":
         raise ValueError(f"Unsupported command: {args.command}")
@@ -60,18 +65,18 @@ def main() -> int:
         try:
             delivery.deliver(result, output_path)
         except Exception as exc:
+            logger.warning("delivery failed: %s: %s", delivery.delivery_id, exc)
             delivery_errors.append(f"{delivery.delivery_id}: {exc}")
 
-    print(f"Wrote report: {output_path}")
-    print(f"Documents fetched: {result.documents_fetched}")
-    print(f"Documents after dedupe: {result.documents_deduped}")
-    print(f"Signals detected: {len(result.signals)}")
-    if result.errors:
-        print("Warnings:")
-        for item in result.errors:
-            print(f"- {item}")
-    if delivery_errors:
-        print("Delivery warnings:")
-        for item in delivery_errors:
-            print(f"- {item}")
+    logger.info("wrote report: %s", output_path)
+    logger.info(
+        "documents fetched=%d deduped=%d signals=%d",
+        result.documents_fetched,
+        result.documents_deduped,
+        len(result.signals),
+    )
+    for item in result.errors:
+        logger.warning("source warning: %s", item)
+    for item in delivery_errors:
+        logger.warning("delivery warning: %s", item)
     return 0

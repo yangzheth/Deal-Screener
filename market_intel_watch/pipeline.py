@@ -5,9 +5,13 @@ from pathlib import Path
 
 from market_intel_watch.config import load_source_config, load_watch_config
 from market_intel_watch.extractors.rules import RuleBasedSignalExtractor
+from market_intel_watch.logging_config import get_logger
 from market_intel_watch.models import DailyRunResult, Signal, SourceDocument
 from market_intel_watch.reporting.markdown import render_markdown_report
 from market_intel_watch.sources import build_sources
+
+
+logger = get_logger(__name__)
 
 
 def _document_quality(document: SourceDocument) -> tuple[int, datetime]:
@@ -142,9 +146,13 @@ def run_daily(config_dir: Path, output_dir: Path, run_date: date) -> DailyRunRes
 
     for source in sources:
         try:
-            documents.extend(source.fetch(run_date))
+            fetched = source.fetch(run_date)
         except Exception as exc:  # pragma: no cover - defensive for remote feeds
+            logger.warning("source fetch failed: %s: %s", source.source_id, exc)
             errors.append(f"{source.source_id}: {exc}")
+            continue
+        logger.info("source %s returned %d documents", source.source_id, len(fetched))
+        documents.extend(fetched)
 
     recent_documents = filter_recent_documents(documents, run_date=run_date)
     deduped_documents = dedupe_documents(recent_documents)

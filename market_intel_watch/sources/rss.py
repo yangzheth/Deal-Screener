@@ -6,6 +6,7 @@ import html
 import re
 import xml.etree.ElementTree as ET
 
+from market_intel_watch.logging_config import get_logger
 from market_intel_watch.models import SourceDocument
 from market_intel_watch.sources.base import SourceAdapter
 from market_intel_watch.sources.html_fetch import fetch_article_snapshot
@@ -14,6 +15,7 @@ from market_intel_watch.sources.http_fetch import fetch_url_bytes
 
 TAG_RE = re.compile(r"<[^>]+>")
 USER_AGENT = "Mozilla/5.0 (compatible; AIPrimaryMarketWatch/0.2)"
+logger = get_logger(__name__)
 
 
 def strip_html(value: str) -> str:
@@ -30,7 +32,8 @@ class RSSSource(SourceAdapter):
                 user_agent=USER_AGENT,
                 timeout=int(self.config.get("article_timeout", 15)),
             )
-        except Exception:
+        except Exception as exc:
+            logger.debug("article enrichment failed for %s: %s", document.url, exc)
             return document
 
         return SourceDocument(

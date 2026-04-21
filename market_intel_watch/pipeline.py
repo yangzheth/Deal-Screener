@@ -4,10 +4,19 @@ from datetime import date, datetime, time
 from pathlib import Path
 
 from market_intel_watch.config import load_source_config, load_watch_config
+from market_intel_watch.extractors.llm_scorer import (
+    LLMSignalScorer,
+    is_llm_enabled,
+    load_reader_profile,
+)
 from market_intel_watch.extractors.rules import RuleBasedSignalExtractor
+from market_intel_watch.logging_config import get_logger
 from market_intel_watch.models import DailyRunResult, Signal, SourceDocument
 from market_intel_watch.reporting.markdown import render_markdown_report
 from market_intel_watch.sources import build_sources
+
+
+logger = get_logger(__name__)
 
 
 def _document_quality(document: SourceDocument) -> tuple[int, datetime]:
@@ -142,9 +151,13 @@ def run_daily(config_dir: Path, output_dir: Path, run_date: date) -> DailyRunRes
 
     for source in sources:
         try:
-            documents.extend(source.fetch(run_date))
+            fetched = source.fetch(run_date)
         except Exception as exc:  # pragma: no cover - defensive for remote feeds
+            logger.warning("source fetch failed: %s: %s", source.source_id, exc)
             errors.append(f"{source.source_id}: {exc}")
+            continue
+        logger.info("source %s returned %d documents", source.source_id, len(fetched))
+        documents.extend(fetched)
 
     recent_documents = filter_recent_documents(documents, run_date=run_date)
     deduped_documents = dedupe_documents(recent_documents)
@@ -160,6 +173,19 @@ def run_daily(config_dir: Path, output_dir: Path, run_date: date) -> DailyRunRes
         signals.extend(extractor.extract(document))
 
     deduped_signals = dedupe_signals(signals)
+
+    if is_llm_enabled():
+        try:
+            reader_profile = load_reader_profile(config_dir)
+            scorer = LLMSignalScorer(reader_profile=reader_profile)
+            deduped_signals = scorer.score(deduped_signals)
+            logger.info("LLM scorer applied to %d signals", len(deduped_signals))
+        except Exception as exc:
+            logger.warning("LLM scoring skipped: %s", exc)
+            errors.append(f"llm_scorer: {exc}")
+    else:
+        logger.info("LLM scoring disabled (no CLAUDE_CODE_OAUTH_TOKEN / ANTHROPIC_API_KEY)")
+
     report_text = render_markdown_report(
         run_date=run_date,
         documents_fetched=len(documents),

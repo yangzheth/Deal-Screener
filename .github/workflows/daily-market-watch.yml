@@ -25,6 +25,12 @@ jobs:
     env:
       NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
       NOTION_DATA_SOURCE_ID: collection://a1f37ba1-0e98-457e-82f1-db47ec20ab17
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      SMTP_FROM_ADDR: ${{ secrets.SMTP_FROM_ADDR }}
+      SMTP_TO: ${{ secrets.SMTP_TO }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
@@ -41,44 +47,73 @@ jobs:
             exit 1
           fi
 
+      - name: Set up Node.js (for Claude CLI)
+        if: env.CLAUDE_CODE_OAUTH_TOKEN != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Claude CLI
+        if: env.CLAUDE_CODE_OAUTH_TOKEN != ''
+        run: npm install -g @anthropic-ai/claude-code
+
       - name: Create runtime delivery config
         run: |
           mkdir -p config
-          cat > config/delivery.json <<EOF
-          {
-            "deliveries": [
+          python - <<'PY'
+          import json, os
+          deliveries = [
               {
-                "id": "notion-market-watch",
-                "type": "notion_database",
-                "enabled": true,
-                "auth_token_env": "NOTION_API_TOKEN",
-                "data_source_id": "${NOTION_DATA_SOURCE_ID}",
-                "upsert": true,
-                "default_review_status": "To Review",
-                "relation_targets": [
-                  {
-                    "property_key": "company_record",
-                    "data_source_id": "collection://8a47f584-7a5b-4cba-9eb6-d6d6ca8789cc",
-                    "lookup_properties": ["Company"],
-                    "signal_fields": ["company_name"]
-                  },
-                  {
-                    "property_key": "ai_tracker_deal",
-                    "data_source_id": "collection://b7f972e1-ad2d-46e6-8b13-f298e99a3602",
-                    "lookup_properties": ["Company", "Deal"],
-                    "signal_fields": ["company_name", "title"]
-                  },
-                  {
-                    "property_key": "pipeline_deal",
-                    "data_source_id": "collection://0b6c5021-4235-4b5d-b8bb-3f50da0c277b",
-                    "lookup_properties": ["ÏîÄ¿Ãû³Æ"],
-                    "signal_fields": ["company_name", "title"]
-                  }
-                ]
+                  "id": "notion-market-watch",
+                  "type": "notion_database",
+                  "enabled": True,
+                  "auth_token_env": "NOTION_API_TOKEN",
+                  "data_source_id": os.environ["NOTION_DATA_SOURCE_ID"],
+                  "upsert": True,
+                  "default_review_status": "To Review",
+                  "relation_targets": [
+                      {
+                          "property_key": "company_record",
+                          "data_source_id": "collection://8a47f584-7a5b-4cba-9eb6-d6d6ca8789cc",
+                          "lookup_properties": ["Company"],
+                          "signal_fields": ["company_name"],
+                      },
+                      {
+                          "property_key": "ai_tracker_deal",
+                          "data_source_id": "collection://b7f972e1-ad2d-46e6-8b13-f298e99a3602",
+                          "lookup_properties": ["Company", "Deal"],
+                          "signal_fields": ["company_name", "title"],
+                      },
+                      {
+                          "property_key": "pipeline_deal",
+                          "data_source_id": "collection://0b6c5021-4235-4b5d-b8bb-3f50da0c277b",
+                          "lookup_properties": ["é¡¹ç›®åç§°"],
+                          "signal_fields": ["company_name", "title"],
+                      },
+                  ],
               }
-            ]
-          }
-          EOF
+          ]
+          if os.environ.get("SMTP_USERNAME") and os.environ.get("SMTP_PASSWORD"):
+              deliveries.append(
+                  {
+                      "id": "email-daily-digest",
+                      "type": "email_smtp",
+                      "enabled": True,
+                      "smtp_host": os.environ.get("SMTP_HOST", "smtp.gmail.com"),
+                      "smtp_port": int(os.environ.get("SMTP_PORT", "587")),
+                      "use_starttls": True,
+                      "username_env": "SMTP_USERNAME",
+                      "password_env": "SMTP_PASSWORD",
+                      "from_addr": os.environ.get("SMTP_FROM_ADDR") or os.environ["SMTP_USERNAME"],
+                      "from_name": "AI Market Watch",
+                      "to": [addr.strip() for addr in os.environ.get("SMTP_TO", os.environ["SMTP_USERNAME"]).split(",") if addr.strip()],
+                      "top_n": 8,
+                      "min_llm_score": 7.0,
+                  }
+              )
+          with open("config/delivery.json", "w", encoding="utf-8") as f:
+              json.dump({"deliveries": deliveries}, f, ensure_ascii=False, indent=2)
+          PY
 
       - name: Run regression tests
         run: python -m unittest discover -s tests -v

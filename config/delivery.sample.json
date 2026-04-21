@@ -48,6 +48,21 @@
       "headers": {
         "Content-Type": "application/json"
       }
+    },
+    {
+      "id": "email-daily-digest",
+      "type": "email_smtp",
+      "enabled": false,
+      "smtp_host": "smtp.gmail.com",
+      "smtp_port": 587,
+      "use_starttls": true,
+      "username_env": "SMTP_USERNAME",
+      "password_env": "SMTP_PASSWORD",
+      "from_addr": "you@example.com",
+      "from_name": "AI Market Watch",
+      "to": ["you@example.com"],
+      "top_n": 8,
+      "min_llm_score": 7.0
     }
   ]
 }

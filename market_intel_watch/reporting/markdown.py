@@ -13,8 +13,33 @@ EVENT_LABELS = {
 }
 
 
+URGENT_EVENT_SHORT_LABELS = {
+    "funding": "Funding",
+    "talent_departure": "Departure",
+    "talent_hire": "Hire",
+}
+
+
 def _format_list(values: list[str], fallback: str = "unknown") -> str:
     return ", ".join(values) if values else fallback
+
+
+def _dedupe_urgent(signals: list[Signal]) -> list[tuple[Signal, list[str]]]:
+    grouped: dict[str, tuple[Signal, list[str]]] = {}
+    order: list[str] = []
+    for signal in signals:
+        key = signal.url or signal.title
+        existing = grouped.get(key)
+        if existing is None:
+            grouped[key] = (signal, [signal.event_type])
+            order.append(key)
+            continue
+        primary, event_types = existing
+        if signal.event_type not in event_types:
+            event_types.append(signal.event_type)
+        if signal.score > primary.score:
+            grouped[key] = (signal, event_types)
+    return [grouped[key] for key in order]
 
 
 def render_markdown_report(
@@ -44,10 +69,11 @@ def render_markdown_report(
 
     if urgent:
         lines.extend(["## Immediate Follow-Up", ""])
-        for signal in urgent[:8]:
+        for signal, event_types in _dedupe_urgent(urgent)[:8]:
+            labels = "/".join(URGENT_EVENT_SHORT_LABELS.get(event, event) for event in event_types)
             lines.append(f"- [{signal.title}]({signal.url})")
             lines.append(
-                f"  Verdict: {signal.follow_verdict} | Company: {signal.company_name or 'unknown'} | Score: {signal.score:.1f} | Sources: {signal.source_count}"
+                f"  Events: {labels} | Verdict: {signal.follow_verdict} | Company: {signal.company_name or 'unknown'} | Score: {signal.score:.1f} | Sources: {signal.source_count}"
             )
             lines.append(f"  Action: {signal.suggested_action}")
         lines.append("")

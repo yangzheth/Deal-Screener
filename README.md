@@ -165,6 +165,19 @@ Accepted fields:
 - Replace the rule-based extractor with an LLM classifier once you have a
   stable event schema and feedback loop.
 
+## CLARITY Act Monitor
+
+This repository also includes a legislative monitor for H.R. 3633 (the CLARITY
+Act), a self-contained sub-package under `market_intel_watch/monitors/`. It
+tracks the bill through the Senate, scores events for materiality, and syncs
+them to a dedicated Notion workspace. See
+[docs/clarity-act-monitor.md](docs/clarity-act-monitor.md) for setup, and run it
+with:
+
+```bash
+python -m market_intel_watch.monitors.clarity_act run --config-dir config --output-dir output
+```
+
 ## Notes
 
 - This repository was scaffolded in an environment without Python or Git

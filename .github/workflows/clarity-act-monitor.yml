@@ -1,0 +1,55 @@
+name: CLARITY Act Monitor
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 */4 * * *"  # every 4 hours
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clarity-act-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
+      CONGRESS_API_KEY: ${{ secrets.CONGRESS_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      TWITTER_BEARER_TOKEN: ${{ secrets.TWITTER_BEARER_TOKEN }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Restore monitor state
+        uses: actions/cache@v4
+        with:
+          path: |
+            output/clarity_act_dedup.sqlite3
+            output/clarity_act_last_market.json
+          key: clarity-act-state-${{ github.run_id }}
+          restore-keys: |
+            clarity-act-state-
+
+      - name: Run regression tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Run CLARITY Act monitor
+        run: python -m market_intel_watch.monitors.clarity_act run --config-dir config --output-dir output
+
+      - name: Upload digest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clarity-act-digest
+          path: output/clarity-act-digest.md
+          if-no-files-found: ignore

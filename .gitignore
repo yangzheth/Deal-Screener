@@ -8,6 +8,7 @@ __pycache__/
 config/delivery.json
 config/watchlist.json
 config/sources.json
+config/clarity_act.json
 
 output/
 

@@ -1,6 +1,9 @@
 name: Daily Market Watch
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       run_date:

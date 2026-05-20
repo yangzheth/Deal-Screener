@@ -52,6 +52,34 @@ class RuleBasedSignalExtractorTests(unittest.TestCase):
         self.assertIn("Agent", signals[0].categories)
         self.assertEqual("Must Chase", signals[0].follow_verdict)
 
+    def test_macro_funding_story_is_not_treated_as_deal(self) -> None:
+        document = SourceDocument(
+            source_id="test-news",
+            channel="news",
+            title="Sector Snapshot: Venture Funding To Foundational AI Startups In Q1 Was Double",
+            url="https://example.com/ai-funding-snapshot",
+            published_at=datetime(2026, 3, 30, 12, 0, tzinfo=timezone.utc),
+            summary="A market-level report about artificial intelligence startup funding trends.",
+        )
+
+        signals = self.extractor.extract(document)
+
+        self.assertEqual([], signals)
+
+    def test_company_partnership_join_is_not_treated_as_hire(self) -> None:
+        document = SourceDocument(
+            source_id="test-news",
+            channel="news",
+            title="Cisco joins Anthropic's multivendor effort to secure AI software",
+            url="https://example.com/anthropic-partnership",
+            published_at=datetime(2026, 3, 30, 12, 0, tzinfo=timezone.utc),
+            summary="A company partnership story, not a person joining a company.",
+        )
+
+        signals = self.extractor.extract(document)
+
+        self.assertEqual([], [signal.event_type for signal in signals])
+
     def test_leave_with_company_context_extracts_person_and_company(self) -> None:
         document = SourceDocument(
             source_id="test-news",
@@ -85,7 +113,7 @@ class RuleBasedSignalExtractorTests(unittest.TestCase):
 
         self.assertIn("talent_hire", [signal.event_type for signal in signals])
         hire = next(signal for signal in signals if signal.event_type == "talent_hire")
-        self.assertEqual("Worth Tracking", hire.follow_verdict)
+        self.assertEqual("Monitor", hire.follow_verdict)
 
 
 if __name__ == "__main__":

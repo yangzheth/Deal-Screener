@@ -15,6 +15,15 @@ FUNDING_PATTERNS = [
     re.compile("(\u878d\u8d44|\u83b7\u6295|\u5b8c\u6210.*\u8f6e|\u79cd\u5b50\u8f6e|\u5929\u4f7f\u8f6e|\u6218\u7565\u6295\u8d44)"),
 ]
 
+FUNDING_EXCLUSION_PATTERNS = [
+    re.compile(
+        r"\b(sector snapshot|funding trends?|funding report|market map|venture funding to|"
+        r"startup funding jumps|funding jumps|investors write bigger cheques|q[1-4]\s+funding)\b",
+        re.IGNORECASE,
+    ),
+    re.compile("(\u878d\u8d44.*(\u8d8b\u52bf|\u62a5\u544a|\u7edf\u8ba1|\u76d8\u70b9|\u540c\u6bd4|\u73af\u6bd4|\u589e\u957f))"),
+]
+
 DEPARTURE_STRONG_PATTERNS = [
     re.compile(r"\b(resigns?|resigned|steps? down|stepped down|departed|quit|quits)\b", re.IGNORECASE),
     re.compile("(\u79bb\u804c|\u8f9e\u4efb|\u5378\u4efb|\u4e0d\u518d\u62c5\u4efb)"),
@@ -45,6 +54,17 @@ HIRE_EXCLUSION_PATTERNS = [
         re.IGNORECASE,
     ),
     re.compile(r"\b(joins?|joined)\s+(in|for)\s+(the\s+)?(funding|financing|round|raise)\b", re.IGNORECASE),
+    re.compile(
+        r"\b(joins?|joined)\s+(forces|hands|partnership|alliance|project|initiative|effort|program|consortium|network)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b[A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*){0,3}\s+joins?\s+"
+        r"(?:[A-Z][A-Za-z0-9&.\-]+'?s?\s+)?"
+        r"(?:[a-z0-9&.\-]+\s+){0,3}"
+        r"(project|initiative|effort|partnership|alliance|program|consortium|platform|network)\b",
+        re.IGNORECASE,
+    ),
 ]
 
 TALENT_CONTEXT_PATTERNS = [
@@ -263,6 +283,8 @@ class RuleBasedSignalExtractor:
         return matches
 
     def _detect_funding(self, text: str) -> bool:
+        if any(pattern.search(text) for pattern in FUNDING_EXCLUSION_PATTERNS):
+            return False
         return any(pattern.search(text) for pattern in FUNDING_PATTERNS)
 
     def _detect_talent_departure(self, text: str, matched_entities: list[WatchEntity]) -> bool:
@@ -504,16 +526,20 @@ class RuleBasedSignalExtractor:
         founder_context = bool(re.search(r"\b(founder|cofounder|co-founder)\b|\u521b\u59cb\u4eba|\u8054\u5408\u521b\u59cb\u4eba", text))
 
         if event_type == "funding":
-            if score >= 88 and (amount or round_stage) and (has_priority_watch or company_name):
+            if not company_name:
+                verdict = "Ignore"
+            elif score >= 88 and (amount or round_stage or investors) and (has_priority_watch or company_name):
                 verdict = "Must Chase"
-            elif score >= 76 and company_name:
+            elif score >= 78 and (amount or round_stage or investors):
                 verdict = "Worth Tracking"
-            elif score >= 66:
+            elif score >= 70:
                 verdict = "Monitor"
             else:
                 verdict = "Ignore"
         elif event_type == "talent_departure":
-            if has_priority_watch or founder_context:
+            if not key_people and not founder_context:
+                verdict = "Monitor" if score >= 85 and has_priority_watch else "Ignore"
+            elif has_priority_watch or founder_context:
                 verdict = "Must Chase"
             elif score >= 74:
                 verdict = "Worth Tracking"
@@ -522,7 +548,9 @@ class RuleBasedSignalExtractor:
             else:
                 verdict = "Ignore"
         else:
-            if has_priority_watch and (key_people or re.search(r"\b(ceo|cto|cfo|coo|chief|vp|researcher|founder)\b", text)):
+            if not key_people:
+                verdict = "Monitor" if score >= 85 and has_priority_watch else "Ignore"
+            elif has_priority_watch and re.search(r"\b(ceo|cto|cfo|coo|chief|vp|researcher|founder)\b", text):
                 verdict = "Worth Tracking"
             elif score >= 70:
                 verdict = "Monitor"
